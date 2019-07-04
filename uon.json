@@ -1,0 +1,8 @@
+{
+    "name": "auth-api",
+    "projectType": "library",
+    "entry": "src/index.ts",
+    "options": {
+        "outputPath": "dist"
+    }
+}
