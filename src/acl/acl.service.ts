@@ -1,12 +1,12 @@
 
 import { Injectable, Inject, Injector } from '@uon/core';
 import { ResourceAccess, UserACL, Grant, ResourceUri, GroupACL } from './acl.model';
-import { AUTH_MODULE_CONFIG, AuthModuleConfig, AUTH_MONGO_CLIENT } from '../auth/config';
+import { AUTH_MODULE_CONFIG, AuthModuleConfig } from '../auth/config';
 
 import { DbService, DbContext, Query } from '@uon/db';
 
 
-const DEFAULT_SOURCES = ['user', 'role'];
+const DEFAULT_SOURCES = ['user', 'group'];
 
 @Injectable()
 export class AclService {
