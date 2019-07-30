@@ -2,7 +2,7 @@
 import { Injectable } from '@uon/core';
 import { IRouteGuardService, ActivatedRoute } from "@uon/router";
 import { IncomingRequest, HttpError } from "@uon/http";
-import { ResourceAccess } from './acl.model';
+import { ResourceAccess, ResourceUri } from './acl.model';
 import { AuthContext } from '../auth/auth.service';
 import { AclService } from './acl.service';
 
@@ -36,7 +36,12 @@ export function AclGuard(uri: string, accessFlag: ResourceAccess) {
 
             // result has to be true to continue
             if (result !== true) {
-                throw new HttpError(403);
+
+                // makes more sense to send a 404 when user has 
+                // no resources under a given collection
+                const parsed = ResourceUri.Parse(resolved_uri);
+                const code = parsed.id === '*' ? 404 : 403;
+                throw new HttpError(code);
             }
 
             return true;
