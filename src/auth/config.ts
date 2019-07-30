@@ -8,6 +8,8 @@ export const AUTH_MODULE_CONFIG = new InjectionToken<AuthModuleConfig>("AUTH_MOD
 export const AUTH_MONGO_CLIENT = new InjectionToken<Client>("AUTH_MONGO_CLIENT");
 
 
+//export const AUTH_TOKEN_REFRESH_GUARDS = new InjectionToken<any[]>("AUTH_TOKEN_REFRESH_GUARDS");
+
 
 
 export interface AuthModuleConfig {
@@ -18,10 +20,9 @@ export interface AuthModuleConfig {
     authPath: string;
 
     /**
-  * Guards for the auth router
-  */
+     * Guards for the auth router
+     */
     guards?: RouteGuard[];
-
 
 
     /**
@@ -33,7 +34,6 @@ export interface AuthModuleConfig {
      * The user model class to use
      */
     userModelClass: Type<IUserModel>;
-
 
     /**
      * The name of the field on the model which corresponds to
