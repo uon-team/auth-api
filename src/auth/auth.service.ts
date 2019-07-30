@@ -213,7 +213,7 @@ export class AuthContext {
     }
 
     /**
-     * Whether is request JWT is valid 
+     * Whether request JWT is valid 
      */
     get valid() {
         return this._valid;
