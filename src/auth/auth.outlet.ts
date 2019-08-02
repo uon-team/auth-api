@@ -1,6 +1,6 @@
 
 import { RouterOutlet, ActivatedRoute } from "@uon/router";
-import { HttpRoute, IncomingRequest, OutgoingResponse, BodyGuard, HttpError, Cookies, JsonBodyGuard, JsonBody } from '@uon/http';
+import { HttpRoute, IncomingRequest, OutgoingResponse, HttpError, Cookies, JsonBodyGuard, JsonBody } from '@uon/http';
 import { AuthService, AuthContext } from "./auth.service";
 import { Required } from "@uon/model";
 
@@ -51,9 +51,20 @@ export class AuthOutlet {
         }
 
         // set the cookie
-        this.cookies.setCookie(this.auth.cookieName, result.token, { httpOnly: true });
+        this.cookies.setCookie(this.auth.cookieName,
+            result.token,
+            {
+                httpOnly: true,
+                expires: new Date(result.expires)
+            }
+        );
         this.response.use(this.cookies);
 
+        // set token expires header
+        this.response.setHeader(
+            this.auth.expiresHeaderName,
+            (new Date(result.expires)).toISOString()
+        );
 
         // send the user as json response
         this.response.json({ user: result.user, expires: result.expires });
@@ -76,8 +87,15 @@ export class AuthOutlet {
         await this.auth.invalidateToken(this.authContext.jwt);
 
         // remove cookie
-        this.cookies.setCookie(this.auth.cookieName, null, { httpOnly: true, expires: new Date(0) });
+        this.cookies.setCookie(this.auth.cookieName,
+            null,
+            {
+                httpOnly: true,
+                expires: new Date(0)
+            }
+        );
         this.response.use(this.cookies);
+
 
         return this.response.finish();
     }

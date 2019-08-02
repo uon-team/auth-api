@@ -94,6 +94,8 @@ export class GroupOutlet {
         );
 
         this.response.statusCode = 201;
+        this.response.json(group);
+        
         return this.response.finish();
 
     }
@@ -133,7 +135,7 @@ export class GroupOutlet {
     async deleteGroup(params: RouteParams, db: DbContext) {
 
         // find group
-        const group = await db.findOne(GroupACL, { id: params.groupId });
+        const group: GroupACL = await db.findOne(GroupACL, { id: params.groupId });
 
         if (!group) {
             throw new HttpError(404);

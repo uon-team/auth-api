@@ -2,7 +2,7 @@
 import { Module, ModuleWithProviders, Type, Inject, APP_INITIALIZER, Optional } from '@uon/core';
 import { Router, RouteGuard } from '@uon/router';
 import { HttpRoute, HTTP_ROUTER, HTTP_PROVIDERS } from '@uon/http';
-import { AuthModuleConfig, AUTH_MODULE_CONFIG, AUTH_MONGO_CLIENT, AUTH_CONFIG_DEFAULTS } from './config';
+import { AuthModuleConfig, AUTH_MODULE_CONFIG, AUTH_CONFIG_DEFAULTS } from './config';
 
 import { AuthOutlet } from './auth.outlet';
 import { AuthService, AuthContext } from './auth.service';

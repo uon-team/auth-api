@@ -1,10 +1,15 @@
 
 import { Injectable } from '@uon/core';
 import { IRouteGuardService, ActivatedRoute } from "@uon/router";
-import { HttpError, OutgoingResponse } from '@uon/http';
+import { HttpError, OutgoingResponse, IncomingRequest } from '@uon/http';
 import { AuthContext } from './auth.service';
+import { AccessToken } from './auth.model';
 
 
+/**
+ * RouterGuard to check prevent unauthorized access.
+ * Also provides the means to refresh a token on expiration.
+ */
 @Injectable()
 export class AuthGuard implements IRouteGuardService {
 
@@ -39,4 +44,27 @@ export class AuthGuard implements IRouteGuardService {
         // in other cases, not authorised
         throw new HttpError(401);
     }
+}
+
+/**
+ * Interface for token refresh checks
+ */
+export interface ITokenRefreshGuard {
+    checkGuard(accessToken: AccessToken): Promise<boolean>;
+}
+
+
+export class ClientIpRefreshGuard implements ITokenRefreshGuard {
+
+    constructor(private request: IncomingRequest) { }
+
+    async checkGuard(accessToken: AccessToken): Promise<boolean> {
+
+        if (accessToken.clientIp != this.request.clientIp) {
+            return false;
+        }
+
+        return true;
+    }
+
 }

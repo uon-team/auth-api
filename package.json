@@ -9,9 +9,9 @@
     "keywords": [],
     "license": "MIT",
     "author": {
-      "name": "Gabriel Roy",
-      "email": "gab@uon.io",
-      "url": "https://uon.io"
+        "name": "Gabriel Roy",
+        "email": "gab@uon.io",
+        "url": "https://uon.io"
     },
     "peerDependencies": {
         "@uon/core": "^0.9.1",

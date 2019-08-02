@@ -1,14 +1,12 @@
 
 import { Injectable, Inject, Type, Injector, StringUtils } from '@uon/core';
 import { DbService, DbContext } from '@uon/db';
-import { AUTH_MODULE_CONFIG, AuthModuleConfig, AUTH_MONGO_CLIENT } from './config';
+import { AUTH_MODULE_CONFIG, AuthModuleConfig } from './config';
 import { Encode, JwtToken, JwtPayload, Decode, VerifyResult, VerifyOptions, Verify, IsVerifyValid } from '@uon/jwt';
 import { compare } from 'bcryptjs';
 import { IUserModel, AccessToken } from './auth.model';
 import { Cookies, OutgoingResponse, IncomingRequest } from '@uon/http';
 
-
-const TOKEN_COOKIE_OPTIONS = { httpOnly: true };
 
 
 @Injectable()
@@ -30,6 +28,10 @@ export class AuthService {
         return this.config.tokenCookieName;
     }
 
+    get expiresHeaderName() {
+        return this.config.tokenExpiresHeaderName;
+    }
+
 
     /**
      * Exchange a credential pair for a token
@@ -43,7 +45,6 @@ export class AuthService {
         // find the user by username
         const user: IUserModel = await db.findOne(this.userModelClass,
             { [this.config.usernameField]: username }
-            // { projection: { _id: 1, [this.config.usernameField]: 1, password: 1 } }
         );
 
         // cannot continue without a user
@@ -85,14 +86,16 @@ export class AuthService {
         }
 
         // encode jwt to string
-        const jwt = Encode(payload, this.config.tokenSecret[0], this.config.tokenAlgorithm);
+        const token = Encode(payload, this.config.tokenSecret[0], this.config.tokenAlgorithm);
 
+        // the cookie expiry date
+        const expires = exp + this.config.tokenRefreshWindow
 
         // remove password from user object
         user.password = undefined;
 
         // return the jwt
-        return { token: jwt, user, expires: exp + this.config.tokenRefreshWindow };
+        return { token, user, expires };
 
     }
 
@@ -116,22 +119,27 @@ export class AuthService {
      * 
      * @param token 
      */
-    async refreshToken(token: JwtToken, userAgent: string, clientIp: string) {
+    async refreshToken(oldToken: JwtToken, userAgent: string, clientIp: string) {
 
         const db = await this.getDbContext();
 
         // find an access token in the db
-        const access_token = await db.findOne(AccessToken, { id: token.payload.jti });
+        const access_token: AccessToken = await db.findOne(AccessToken, { id: oldToken.payload.jti });
 
-        // if not access token can be found, we cannot refresh
+        // if no access token can be found, we cannot refresh
         if (!access_token) {
             return null;
         }
 
-        // refreshes require the user agent and client ip to be the similar
-        if (StringUtils.similarity(access_token.userAgent, userAgent) < this.config.userAgentMinimumSimilarity ||
-            StringUtils.similarity(access_token.clientIp, clientIp) < this.config.clientIpMinimumSimilarity) {
-            return null;
+        let guards = this.config.refreshGuards || [];
+
+        for (let i = 0; i < guards.length; ++i) {
+            let s = await this.injector.instanciateAsync(guards[i]);
+            let res = await s.checkGuard(access_token);
+
+            if (!res) {
+                return null;
+            }
         }
 
 
@@ -140,14 +148,17 @@ export class AuthService {
         const iat = Date.now();
 
         // copy orginal payload
-        const payload = Object.assign({}, token.payload);
+        const payload = Object.assign({}, oldToken.payload);
 
         // update dates
         payload.iat = iat;
         payload.exp = exp;
 
         // encode new payload to jwt
-        const jwt = Encode(payload, this.config.tokenSecret[0], this.config.tokenAlgorithm);
+        const token = Encode(payload, this.config.tokenSecret[0], this.config.tokenAlgorithm);
+
+        // new cookie expiration date
+        const expires = exp + this.config.tokenRefreshWindow;
 
         // increment refresh count
         access_token.refreshCount++;
@@ -158,7 +169,7 @@ export class AuthService {
         await db.updateOne(access_token);
 
         // return the new jwt
-        return jwt;
+        return { token, expires };
 
     }
 
@@ -252,27 +263,55 @@ export class AuthContext {
         this.response.use(this.cookies);
 
         // try generating a new token on the service
-        const new_token = await this.service.refreshToken(
+        const refresh_result = await this.service.refreshToken(
             this._token,
             this.request.headers['user-agent'],
             this.request.clientIp
         );
 
-        if (!new_token) {
-            this.cookies.setCookie(this.config.tokenCookieName, null, { httpOnly: true, expires: new Date(0) });
+        // couldn't refresh, expire cookie
+        if (!refresh_result) {
+            this.cookies.setCookie(this.config.tokenCookieName,
+                null,
+                { httpOnly: true, expires: new Date(0) }
+            );
             return false;
         }
 
         // reset auth context
         this._valid = true;
-        this._token = Decode(new_token);
+        this._token = Decode(refresh_result.token);
 
         // set cookie
-        this.cookies.setCookie(this.config.tokenCookieName, new_token, { httpOnly: true });
+        this.cookies.setCookie(this.config.tokenCookieName,
+            refresh_result.token,
+            {
+                httpOnly: true,
+                expires: new Date(refresh_result.expires)
+            }
+        );
+
+        // set expires header
+        this.response.setHeader(
+            this.config.tokenExpiresHeaderName,
+            (new Date(refresh_result.expires)).toISOString()
+        );
+
         return true;
     }
 
+    /**
+     * Invalidate the current token
+     */
     async invalidate() {
+
+        this.cookies.setCookie(this.config.tokenCookieName,
+            null,
+            {
+                httpOnly: true,
+                expires: new Date(0)
+            }
+        );
 
         if (this._token) {
             return this.service.invalidateToken(this._token);

@@ -1,17 +1,19 @@
 import { RouteGuard } from "@uon/router";
 import { Type, InjectionToken } from "@uon/core";
-import { Client } from "@uon/model-mongo";
 import { IUserModel } from "./auth.model";
-
+import { ITokenRefreshGuard } from "./auth.guard";
 
 export const AUTH_MODULE_CONFIG = new InjectionToken<AuthModuleConfig>("AUTH_MODULE_CONFIG");
-export const AUTH_MONGO_CLIENT = new InjectionToken<Client>("AUTH_MONGO_CLIENT");
-
 
 //export const AUTH_TOKEN_REFRESH_GUARDS = new InjectionToken<any[]>("AUTH_TOKEN_REFRESH_GUARDS");
 
+export type RefreshCheckFunc = () => Promise<boolean>
 
 
+
+/**
+ * Configuration options for authentication module 
+ */
 export interface AuthModuleConfig {
 
     /**
@@ -24,6 +26,10 @@ export interface AuthModuleConfig {
      */
     guards?: RouteGuard[];
 
+    /**
+     * A list of refresh guard types to invoke on token refresh
+     */
+    refreshGuards?: Type<ITokenRefreshGuard>[];
 
     /**
      * The db name (declared with @uon/db/DbModule) for storing user data
@@ -47,6 +53,12 @@ export interface AuthModuleConfig {
      * Defaults to '_uat'
      */
     tokenCookieName?: string;
+
+    /**
+     * Name of the header set when a token is assigned or refreshed
+     * Defaults to 'X-Auth-Token-Expires'
+     */
+    tokenExpiresHeaderName?: string;
 
     /**
      * The duration of a jwt before it expires, in milliseconds
@@ -80,20 +92,6 @@ export interface AuthModuleConfig {
     tokenIssuer?: string;
 
 
-    /**
-     * The minimum similarity of the user agent string 
-     * to pass the token refresh test
-     * Defaults to 0.7
-     */
-    userAgentMinimumSimilarity?: number;
-
-    /**
-     * The minimum similarity of the client ip string 
-     * to pass the token refresh test
-     * Defaults to 0.7
-     */
-    clientIpMinimumSimilarity?: number;
-
 }
 
 export const AUTH_CONFIG_DEFAULTS = {
@@ -103,8 +101,7 @@ export const AUTH_CONFIG_DEFAULTS = {
     tokenAlgorithm: 'HS384',
     tokenDuration: 5 * 60 * 1000, // 5 minutes
     tokenRefreshWindow: 24 * 60 * 60 * 1000, // 1 day
-    userAgentMinimumSimilarity: 0.7,
-    clientIpMinimumSimilarity: 0.7
+    tokenRefreshExpiresHeaderName: 'X-Auth-Token-Expires'
 };
 
 
