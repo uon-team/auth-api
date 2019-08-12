@@ -29,6 +29,11 @@ export class AuthModule {
 
         // format token secret to array
         if (!Array.isArray(merged_config.tokenSecret)) {
+
+            if (!merged_config.tokenAlgorithm.startsWith('HS')) {
+                throw new Error(`AuthModule: You must provide a private and public key as array elements for algorithm ${merged_config.tokenAlgorithm}`);
+            }
+
             merged_config.tokenSecret = [merged_config.tokenSecret as string, merged_config.tokenSecret as string];
         }
 
