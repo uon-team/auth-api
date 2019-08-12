@@ -3,6 +3,8 @@ import { RouterOutlet, ActivatedRoute } from "@uon/router";
 import { HttpRoute, IncomingRequest, OutgoingResponse, HttpError, Cookies, JsonBodyGuard, JsonBody } from '@uon/http';
 import { AuthService, AuthContext } from "./auth.service";
 import { Required } from "@uon/model";
+import { Inject } from "@uon/core";
+import { AUTH_MODULE_CONFIG, AuthModuleConfig } from "./config";
 
 
 @RouterOutlet()
@@ -13,7 +15,8 @@ export class AuthOutlet {
         private response: OutgoingResponse,
         private cookies: Cookies,
         private auth: AuthService,
-        private authContext: AuthContext) { }
+        private authContext: AuthContext,
+        @Inject(AUTH_MODULE_CONFIG) private config: AuthModuleConfig) { }
 
 
 
@@ -36,7 +39,7 @@ export class AuthOutlet {
         // remove any old token
         if (this.authContext.jwt) {
             // invalidate token in db
-            await this.auth.invalidateToken(this.authContext.jwt);
+            await this.authContext.invalidate();
         }
 
         // try and get a token with the provided credentials
@@ -55,7 +58,8 @@ export class AuthOutlet {
             result.token,
             {
                 httpOnly: true,
-                expires: new Date(result.expires)
+                expires: new Date(result.expires),
+                maxAge: this.config.tokenRefreshWindow / 1000
             }
         );
         this.response.use(this.cookies);
@@ -67,7 +71,10 @@ export class AuthOutlet {
         );
 
         // send the user as json response
-        this.response.json({ user: result.user, expires: result.expires });
+        this.response.json({ 
+            user: result.user, 
+            expires: result.expires 
+        });
 
         return this.response.finish();
     }
@@ -83,20 +90,9 @@ export class AuthOutlet {
             throw new HttpError(400);
         }
 
-        // invalidate token in db
-        await this.auth.invalidateToken(this.authContext.jwt);
-
-        // remove cookie
-        this.cookies.setCookie(this.auth.cookieName,
-            null,
-            {
-                httpOnly: true,
-                expires: new Date(0)
-            }
-        );
-        this.response.use(this.cookies);
-
-
+        // invalidate token
+        await this.authContext.invalidate();
+ 
         return this.response.finish();
     }
 

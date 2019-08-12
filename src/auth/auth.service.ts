@@ -273,7 +273,11 @@ export class AuthContext {
         if (!refresh_result) {
             this.cookies.setCookie(this.config.tokenCookieName,
                 null,
-                { httpOnly: true, expires: new Date(0) }
+                {
+                    httpOnly: true,
+                    expires: new Date(0),
+                    maxAge: 0
+                }
             );
             return false;
         }
@@ -287,7 +291,8 @@ export class AuthContext {
             refresh_result.token,
             {
                 httpOnly: true,
-                expires: new Date(refresh_result.expires)
+                expires: new Date(refresh_result.expires),
+                maxAge: this.config.tokenRefreshWindow / 1000
             }
         );
 
@@ -309,9 +314,11 @@ export class AuthContext {
             null,
             {
                 httpOnly: true,
-                expires: new Date(0)
+                expires: new Date(0),
+                maxAge: 0
             }
         );
+        this.response.use(this.cookies);
 
         if (this._token) {
             return this.service.invalidateToken(this._token);
