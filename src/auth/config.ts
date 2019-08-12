@@ -101,7 +101,7 @@ export const AUTH_CONFIG_DEFAULTS = {
     tokenAlgorithm: 'HS384',
     tokenDuration: 5 * 60 * 1000, // 5 minutes
     tokenRefreshWindow: 24 * 60 * 60 * 1000, // 1 day
-    tokenRefreshExpiresHeaderName: 'X-Auth-Token-Expires'
+    tokenExpiresHeaderName: 'X-Auth-Token-Expires'
 };
 
 
