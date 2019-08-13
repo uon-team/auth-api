@@ -67,7 +67,7 @@ export class AuthOutlet {
         // set token expires header
         this.response.setHeader(
             this.auth.expiresHeaderName,
-            (new Date(result.expires)).toISOString()
+            (new Date(result.expires)).toUTCString()
         );
 
         // send the user as json response
