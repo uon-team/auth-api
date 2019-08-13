@@ -13,7 +13,9 @@ import { AccessToken } from './auth.model';
 @Injectable()
 export class AuthGuard implements IRouteGuardService {
 
-    constructor(private authContext: AuthContext, private response: OutgoingResponse) { }
+    constructor(private authContext: AuthContext, 
+        private request: IncomingRequest,
+        private response: OutgoingResponse) { }
 
     async checkGuard(route: ActivatedRoute) {
 
