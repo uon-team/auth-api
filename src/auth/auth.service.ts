@@ -119,7 +119,7 @@ export class AuthService {
      * 
      * @param token 
      */
-    async refreshToken(oldToken: JwtToken, userAgent: string, clientIp: string) {
+    async refreshToken(oldToken: JwtToken) {
 
         const db = await this.getDbContext();
 
@@ -263,11 +263,7 @@ export class AuthContext {
         this.response.use(this.cookies);
 
         // try generating a new token on the service
-        const refresh_result = await this.service.refreshToken(
-            this._token,
-            this.request.headers['user-agent'],
-            this.request.clientIp
-        );
+        const refresh_result = await this.service.refreshToken(this._token);
 
         // couldn't refresh, expire cookie
         if (!refresh_result) {
@@ -296,10 +292,16 @@ export class AuthContext {
             }
         );
 
+        // reset request cookie in case we want to internally use mockRequest
+        this.request.headers.cookie = this.request.headers.cookie.replace(
+            new RegExp(`${this.config.tokenCookieName}=([^;]+)`),
+            `${this.config.tokenCookieName}=${refresh_result.token}`
+        );
+
         // set expires header
         this.response.setHeader(
             this.config.tokenExpiresHeaderName,
-            (new Date(refresh_result.expires)).toISOString()
+            (new Date(refresh_result.expires)).toUTCString()
         );
 
         return true;
