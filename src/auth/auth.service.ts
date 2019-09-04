@@ -304,6 +304,11 @@ export class AuthContext {
             (new Date(refresh_result.expires)).toUTCString()
         );
 
+        // set cors expose header
+        this.response.setHeader('Access-Control-Expose-Headers',
+            this.config.tokenExpiresHeaderName
+        );
+
         return true;
     }
 
