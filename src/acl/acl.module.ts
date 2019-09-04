@@ -52,15 +52,17 @@ export class AclModule {
                     factory: (router: Router<HttpRoute>) => {
                         router.add({
                             path: config.aclPath,
-                            guards: guards.concat(merged_config.guards || []),
+                            guards: merged_config.guards || [],
                             children: [
                                 {
                                     path: '/group',
-                                    outlet: GroupOutlet
+                                    outlet: GroupOutlet,
+                                    guards
                                 },
                                 {
                                     path: '/user',
-                                    outlet: UserOutlet
+                                    outlet: UserOutlet,
+                                    guards
                                 }
 
                             ]
