@@ -36,11 +36,11 @@ export class AclService {
         const uri_match = parsed.id === '*' ? new RegExp(`^${wild_card}(.*)`) : { $in: [uri, wild_card] }
 
         // just need to find one match to authorize access
-        const acl = await db.findOne(
+        const acl: UserACL = await db.findOne(
             UserACL,
             {
                 userId,
-                grants : { 
+                grants: {
                     $elemMatch: {
                         uri: uri_match,
                         access: { $bitsAllSet: access }
@@ -48,7 +48,7 @@ export class AclService {
                 }
             },
             {
-                projection: { _id: 1 }
+                projection: { _id: 1 as 1 }
             }
         );
 
@@ -73,7 +73,7 @@ export class AclService {
 
         const db = await this.getDbContext();
 
-        const acl = await db.findOne(UserACL, { userId });
+        const acl: UserACL = await db.findOne(UserACL, { userId });
 
         const prefix = `${realm}://${collection}/`
         const resource_ids: string[] = [];
@@ -115,7 +115,7 @@ export class AclService {
 
         const grants = uri.map(u => new Grant(u.toString(), access, 'user'));
 
-        let acl = await db.findOne(UserACL, { userId });
+        let acl: UserACL = await db.findOne(UserACL, { userId });
 
         if (!acl) {
             acl = new UserACL();
@@ -211,7 +211,7 @@ export class AclService {
             db = await this.getDbContext();
         }
 
-        const group = await db.findOne(GroupACL, { id: groupId });
+        const group: GroupACL = await db.findOne(GroupACL, { id: groupId });
 
         if (!group) {
             throw new Error('Group does not exist.');
@@ -250,7 +250,7 @@ export class AclService {
             db = await this.getDbContext();
         }
 
-        const group = await db.findOne(GroupACL, { id: groupId });
+        const group: GroupACL = await db.findOne(GroupACL, { id: groupId });
 
         if (!group) {
             throw new Error('Group does not exist.');
