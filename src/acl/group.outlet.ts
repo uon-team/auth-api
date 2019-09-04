@@ -6,7 +6,7 @@ import { AclService } from "./acl.service";
 import { AclGuard } from "./acl.guard";
 import { GroupACL, ResourceAccess, ResourceUri, Grant, UserACL } from "./acl.model";
 import { Prohibited, Required } from "@uon/model";
-import { DbContext } from "@uon/db";
+import { DbContext, Query } from "@uon/db";
 
 
 @RouterOutlet()
@@ -18,7 +18,8 @@ export class GroupOutlet {
         private response: OutgoingResponse,
         private auth: AuthService,
         private acl: AclService,
-        private authContext: AuthContext) { }
+        private authContext: AuthContext,
+        private db: DbContext) { }
 
 
     /**
@@ -37,6 +38,20 @@ export class GroupOutlet {
             'acl', 'groups',
             ResourceAccess.Read
         );
+
+        const query: Query<GroupACL> = {
+            ...list !== true && { id: { $in: list } }
+        }
+
+        const groups = await this.db.find(GroupACL, query, {
+            projection: {
+                grants: 0
+            }
+        });
+
+        this.response.json(groups);
+
+        return this.response.finish();
 
 
     }
@@ -95,7 +110,7 @@ export class GroupOutlet {
 
         this.response.statusCode = 201;
         this.response.json(group);
-        
+
         return this.response.finish();
 
     }
@@ -173,6 +188,13 @@ export class GroupOutlet {
         // all done with server work
         this.response.statusCode = 204;
         return this.response.finish();
+    }
+    
+
+    private async checkAllAcls(userId: string, grants: Grant[]) {
+
+
+
     }
 
 
