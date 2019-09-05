@@ -1,9 +1,9 @@
 
 import { Injectable, Inject, Injector } from '@uon/core';
 import { ResourceAccess, UserACL, Grant, ResourceUri, GroupACL } from './acl.model';
-import { AUTH_MODULE_CONFIG, AuthModuleConfig } from '../auth/config';
 
 import { DbService, DbContext, Query } from '@uon/db';
+import { ACL_MODULE_CONFIG, AclModuleConfig } from './config';
 
 
 const DEFAULT_SOURCES = ['user', 'group'];
@@ -13,7 +13,7 @@ export class AclService {
 
     private _db: DbContext;
 
-    constructor(@Inject(AUTH_MODULE_CONFIG) private config: AuthModuleConfig,
+    constructor(@Inject(ACL_MODULE_CONFIG) private config: AclModuleConfig,
         private dbService: DbService,
         private injector: Injector) {
 
