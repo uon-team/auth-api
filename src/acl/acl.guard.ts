@@ -23,9 +23,10 @@ export function AclGuard(uri: string, accessFlag: ResourceAccess) {
             }
 
             // resolve uri with route params
-            const resolved_uri = uri.replace(/\:([a-zA-Z]+)(?=\/|$)/g, function (_, n) {
+            const resolved_uri = uri.replace(/\:([a-zA-Z]+)(?=\/|\:|$)/g, function (_, n) {
                 return ar.params[n];
             });
+
 
             // run check against db
             const result = await this.acl.check(
