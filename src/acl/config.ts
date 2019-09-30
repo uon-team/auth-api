@@ -18,7 +18,10 @@ export interface AclModuleConfig {
      */
     guards?: RouteGuard[];
 
-
+    /**
+     * The db name (declared with @uon/db/DbModule) for storing user data
+     */
+    dbName: string;
 
 }
 
