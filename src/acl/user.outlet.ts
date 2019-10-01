@@ -9,7 +9,7 @@ import { Prohibited, Required } from "@uon/model";
 import { DbContext, Query } from "@uon/db";
 
 @RouterOutlet()
-export class UserOutlet {
+export class UserACLOutlet {
 
     constructor(private request: IncomingRequest,
         private response: OutgoingResponse,
@@ -146,8 +146,9 @@ export class UserOutlet {
     })
     async assignGroup(params: RouteParams, db: DbContext) {
 
-        return this.acl.assignGroup(params.userId, params.groupId, db);
+        await this.acl.assignGroup(params.userId, params.groupId, db);
 
+        return this.response.finish();
     }
 
     /**
@@ -163,8 +164,9 @@ export class UserOutlet {
     })
     async revokeGroup(params: RouteParams, db: DbContext) {
 
-        return this.acl.revokeGroup(params.userId, params.groupId, db);
+        await this.acl.revokeGroup(params.userId, params.groupId, db);
 
+        return this.response.finish();
     }
 
 }

@@ -2,7 +2,7 @@ import { DbCollectionDefinition } from '@uon/db';
 import { UserACL, GroupACL } from './acl/acl.model';
 import { AccessToken } from './auth/auth.model';
 
-
+export * from './storage-adapter';
 
 export * from './auth/auth.module';
 export * from './auth/auth.service';

@@ -10,7 +10,7 @@ import { DbContext, Query } from "@uon/db";
 
 
 @RouterOutlet()
-export class GroupOutlet {
+export class GroupACLOutlet {
 
 
 

@@ -147,7 +147,7 @@ export class GroupACL {
     grants: Grant[];
 
     /**
-     * The role scope, can be 'global' | 'user'
+     * The group scope, can be 'global' | 'user'
      */
     @Member()
     scope: string;
@@ -179,7 +179,7 @@ export class UserACL {
     userId: string;
 
     /**
-     * List of roles assigned to this user
+     * List of groups assigned to this user
      */
     @ArrayMember(String)
     groupIds: string[];

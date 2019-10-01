@@ -15,7 +15,8 @@ import { AuthService, AuthContext } from './auth.service';
 })
 export class AuthModule {
 
-    constructor(@Optional() @Inject('AUTH_API_ROUTES') _routes: any, @Inject(HTTP_ROUTER) _router: any) {
+    constructor(@Optional() @Inject('AUTH_API_ROUTES') _routes: any,
+        @Inject(HTTP_ROUTER) _router: any) {
 
         if (!_routes) {
             throw new Error('AuthModule needs to be imported using AuthModule.WithConfig()');
@@ -26,15 +27,16 @@ export class AuthModule {
 
 
         const merged_config = Object.assign({}, AUTH_CONFIG_DEFAULTS, config);
+        merged_config.token = Object.assign({}, AUTH_CONFIG_DEFAULTS.token, config.token);
 
         // format token secret to array
-        if (!Array.isArray(merged_config.tokenSecret)) {
+        if (!Array.isArray(merged_config.token.secret)) {
 
-            if (!merged_config.tokenAlgorithm.startsWith('HS')) {
+            if (!merged_config.token.algorithm.startsWith('HS')) {
                 throw new Error(`AuthModule: You must provide a private and public key as array elements for algorithm ${merged_config.tokenAlgorithm}`);
             }
 
-            merged_config.tokenSecret = [merged_config.tokenSecret as string, merged_config.tokenSecret as string];
+            merged_config.tokenSecret = [merged_config.token.secret as string, merged_config.token.secret as string];
         }
 
         // prevent further modifications to config

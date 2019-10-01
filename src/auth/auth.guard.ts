@@ -43,7 +43,7 @@ export class AuthGuard implements IRouteGuardService {
             }
         }
 
-        // in other cases, not authorised
+        // in other cases, not authorized
         throw new HttpError(401);
     }
 }

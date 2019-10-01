@@ -4,8 +4,8 @@ import { HTTP_ROUTER, HttpRoute } from '@uon/http';
 import { Router, RouteGuard } from '@uon/router';
 import { AclService } from './acl.service';
 import { AclModuleConfig, ACL_MODULE_CONFIG, ACL_CONFIG_DEFAULTS } from './config';
-import { GroupOutlet } from './group.outlet';
-import { UserOutlet } from './user.outlet';
+import { GroupACLOutlet } from './group.outlet';
+import { UserACLOutlet } from './user.outlet';
 import { AuthGuard } from '../auth/auth.guard';
 
 
@@ -60,12 +60,12 @@ export class AclModule {
                                 children: [
                                     {
                                         path: '/group',
-                                        outlet: GroupOutlet,
+                                        outlet: GroupACLOutlet,
                                         guards
                                     },
                                     {
                                         path: '/user',
-                                        outlet: UserOutlet,
+                                        outlet: UserACLOutlet,
                                         guards
                                     }
 
