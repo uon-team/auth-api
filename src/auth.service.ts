@@ -1,17 +1,17 @@
 
 import { Injectable, Inject, Type, Injector, StringUtils } from '@uon/core';
-import { DbService, DbContext } from '@uon/db';
 import { AUTH_MODULE_CONFIG, AuthModuleConfig } from './config';
 import { Encode, JwtToken, JwtPayload, Decode, VerifyResult, VerifyOptions, Verify, IsVerifyValid } from '@uon/jwt';
 import { compare } from 'bcryptjs';
-import { IUserModel, AccessToken } from './auth.model';
+import { IUser, IAccessToken } from './auth.model';
 import { Cookies, OutgoingResponse, IncomingRequest } from '@uon/http';
 import { AuthStorageAdapter } from 'src/storage-adapter';
+import { access } from 'fs';
 
 
 export interface ExchangeCredentialsResult {
     token: string;
-    user: IUserModel;
+    user?: IUser;
     expires: number;
 }
 
@@ -19,18 +19,11 @@ export interface ExchangeCredentialsResult {
 export class AuthService {
 
 
-    constructor(@Inject(AUTH_MODULE_CONFIG) private config: AuthModuleConfig,
+    constructor(
+        @Inject(AUTH_MODULE_CONFIG) private config: AuthModuleConfig,
         private storage: AuthStorageAdapter,
         private injector: Injector) {
 
-    }
-
-    get cookieName() {
-        return this.config.token.cookieName;
-    }
-
-    get expiresHeaderName() {
-        return this.config.token.expiresHeaderName;
     }
 
 
@@ -46,8 +39,8 @@ export class AuthService {
         clientIp: string): Promise<ExchangeCredentialsResult> {
 
         // find the user by username
-        const user: IUserModel = await this.storage.readUser(username);
-        
+        const user: IUser = await this.storage.readUser(username);
+
         // cannot continue without a user
         if (!user) {
             return null;
@@ -66,14 +59,22 @@ export class AuthService {
 
 
         // create an access token in the db
-        const access_token: AccessToken = Object.assign(new AccessToken(), {
+        const access_token: IAccessToken = {
+            id: null,
             userAgent,
             clientIp,
             userId: user.id,
             expiresOn: new Date(exp + this.config.token.refreshWindow),
-            createdOn: new Date(iat)
-        });
+            createdOn: new Date(iat),
+            refreshedOn: new Date(iat)
+        };
+
         await this.storage.insertAccessToken(access_token);
+
+        // ensure that id was set by adapter
+        if (!access_token.id) {
+            throw new Error(`You must set 'id' on access token`);
+        }
 
 
         // create a jwt payload
@@ -114,11 +115,10 @@ export class AuthService {
      * 
      * @param token 
      */
-    async refreshToken(oldToken: JwtToken) {
+    async refreshToken(oldToken: JwtToken, request: IncomingRequest) {
 
         // find an access token in the db
-        const access_token: AccessToken = await this.storage.readAccessToken(oldToken.payload.jti); 
-        //await db.findOne(AccessToken, { id: oldToken.payload.jti });
+        const access_token: IAccessToken = await this.storage.readAccessToken(oldToken.payload.jti);
 
         // if no access token can be found, we cannot refresh
         if (!access_token) {
@@ -154,15 +154,12 @@ export class AuthService {
         // new cookie expiration date
         const expires = exp + this.config.token.refreshWindow;
 
-        // increment refresh count
-        access_token.refreshCount++;
+        access_token.clientIp = request.clientIp;
         access_token.refreshedOn = new Date();
         access_token.expiresOn = new Date(exp + this.config.token.refreshWindow);
 
         // save access_token
         await this.storage.updateAccessToken(access_token);
-
-        //await db.updateOne(access_token);
 
         // return the new jwt
         return { token, expires };
@@ -192,7 +189,7 @@ export class AuthContext {
 
         const token = cookies.getCookie(config.token.cookieName);
 
-        if (token && token != 'null') {
+        if (token && token.length > 32) {
 
             const verify_opts: VerifyOptions = {
                 exp: true,
@@ -247,21 +244,12 @@ export class AuthContext {
             return false;
         }
 
-        this.response.use(this.cookies);
-
         // try generating a new token on the service
-        const refresh_result = await this.service.refreshToken(this._token);
+        const refresh_result = await this.service.refreshToken(this._token, this.request);
 
         // couldn't refresh, expire cookie
         if (!refresh_result) {
-            this.cookies.setCookie(this.config.token.cookieName,
-                null,
-                {
-                    httpOnly: true,
-                    expires: new Date(0),
-                    maxAge: 0
-                }
-            );
+            await this.invalidate();
             return false;
         }
 
@@ -270,14 +258,7 @@ export class AuthContext {
         this._token = Decode(refresh_result.token);
 
         // set cookie
-        this.cookies.setCookie(this.config.token.cookieName,
-            refresh_result.token,
-            {
-                httpOnly: true,
-                expires: new Date(refresh_result.expires),
-                maxAge: this.config.token.refreshWindow / 1000
-            }
-        );
+        this.setupSuccessResponse(refresh_result);
 
         // reset request cookie in case we want to internally use mockRequest
         this.request.headers.cookie = this.request.headers.cookie.replace(
@@ -285,16 +266,7 @@ export class AuthContext {
             `${this.config.token.cookieName}=${refresh_result.token}`
         );
 
-        // set expires header
-        this.response.setHeader(
-            this.config.token.expiresHeaderName,
-            (new Date(refresh_result.expires)).toUTCString()
-        );
 
-        // set cors expose header
-        this.response.setHeader('Access-Control-Expose-Headers',
-            this.config.token.expiresHeaderName
-        );
 
         return true;
     }
@@ -304,6 +276,8 @@ export class AuthContext {
      */
     async invalidate() {
 
+        this.response.use(this.cookies);
+
         this.cookies.setCookie(this.config.token.cookieName,
             null,
             {
@@ -312,11 +286,38 @@ export class AuthContext {
                 maxAge: 0
             }
         );
-        this.response.use(this.cookies);
 
         if (this._token) {
             return this.service.invalidateToken(this._token);
         }
+
+    }
+
+    setupSuccessResponse(result: ExchangeCredentialsResult) {
+
+        // make sure we use cookies
+        this.response.use(this.cookies);
+
+        // set the token
+        this.cookies.setCookie(this.config.token.cookieName,
+            result.token,
+            {
+                httpOnly: true,
+                expires: new Date(result.expires),
+                maxAge: this.config.token.refreshWindow / 1000
+            }
+        );
+
+        // set token expires header
+        this.response.setHeader(
+            this.config.token.expiresHeaderName,
+            (new Date(result.expires)).toUTCString()
+        );
+
+        // set cors expose header
+        this.response.setHeader('Access-Control-Expose-Headers',
+            this.config.token.expiresHeaderName
+        );
 
     }
 }

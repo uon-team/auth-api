@@ -3,7 +3,7 @@ import { Injectable } from '@uon/core';
 import { IRouteGuardService, ActivatedRoute } from "@uon/router";
 import { HttpError, OutgoingResponse, IncomingRequest } from '@uon/http';
 import { AuthContext } from './auth.service';
-import { AccessToken } from './auth.model';
+import { IAccessToken } from './auth.model';
 
 
 /**
@@ -25,7 +25,7 @@ export class AuthGuard implements IRouteGuardService {
         }
 
         // if a jwt is present and valid we can continue
-        if (this.authContext.valid) {
+        if (this.authContext.valid === true) {
             return true;
         }
 
@@ -38,7 +38,7 @@ export class AuthGuard implements IRouteGuardService {
             const refresh_success = await this.authContext.refresh();
 
             // refresh might not have succeeded, make sure it did
-            if (refresh_success) {
+            if (refresh_success === true) {
                 return true;
             }
         }
@@ -52,7 +52,7 @@ export class AuthGuard implements IRouteGuardService {
  * Interface for token refresh checks
  */
 export interface ITokenRefreshGuard {
-    checkGuard(accessToken: AccessToken): Promise<boolean>;
+    checkGuard(accessToken: IAccessToken): Promise<boolean>;
 }
 
 
@@ -60,7 +60,7 @@ export class ClientIpRefreshGuard implements ITokenRefreshGuard {
 
     constructor(private request: IncomingRequest) { }
 
-    async checkGuard(accessToken: AccessToken): Promise<boolean> {
+    async checkGuard(accessToken: IAccessToken): Promise<boolean> {
 
         if (accessToken.clientIp != this.request.clientIp) {
             return false;

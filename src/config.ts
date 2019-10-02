@@ -1,6 +1,6 @@
 import { RouteGuard } from "@uon/router";
 import { Type, InjectionToken } from "@uon/core";
-import { IUserModel } from "./auth.model";
+import { IUser } from "./auth.model";
 import { ITokenRefreshGuard } from "./auth.guard";
 
 export const AUTH_MODULE_CONFIG = new InjectionToken<AuthModuleConfig>("AUTH_MODULE_CONFIG");
