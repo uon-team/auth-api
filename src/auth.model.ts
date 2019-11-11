@@ -28,7 +28,7 @@ export interface IUser {
 
 
 /**
- * The minimu access token interface
+ * The minimum access token interface
  */
 export interface IAccessToken {
 
@@ -42,15 +42,6 @@ export interface IAccessToken {
      */
     userId: string;
 
-    /**
-     * The user agent used when this token was created
-     */
-    userAgent: string;
-
-    /**
-     * The user's client IP when this token was created / refreshed
-     */
-    clientIp: string;
 
     /**
      * The date this token was created
