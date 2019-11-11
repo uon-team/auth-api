@@ -1,7 +1,8 @@
-import { RouteGuard } from "@uon/router";
+import { RouteGuard, Router } from "@uon/router";
 import { Type, InjectionToken } from "@uon/core";
 import { IUser } from "./auth.model";
 import { ITokenRefreshGuard } from "./auth.guard";
+import { HttpRoute, HTTP_ROUTER } from "@uon/http";
 
 export const AUTH_MODULE_CONFIG = new InjectionToken<AuthModuleConfig>("AUTH_MODULE_CONFIG");
 
@@ -82,9 +83,15 @@ export interface AuthModuleConfig {
     token: AuthTokenOptions;
 
     /**
-     * A provider for 2FA
+     * Name of the multi factor cookie set
      */
-    twoFactorAuthProvider?: any;
+    mfaTokenCookieName?: string;
+
+    /**
+     * The router injection token to use
+     * Defaults to HTTP_ROUTER
+     */
+    routerToken?: InjectionToken<Router<HttpRoute>>;
 
 
 }
@@ -99,7 +106,9 @@ export const AUTH_CONFIG_DEFAULTS: any  = {
         duration: 5 * 60 * 1000, // 5 minutes
         refreshWindow: 24 * 60 * 60 * 1000, // 1 day
 
-    }
+    },
+    mfaTokenCookieName: '_uat_mfa',
+    routerToken: HTTP_ROUTER
 };
 
 

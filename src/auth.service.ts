@@ -1,15 +1,17 @@
 
-import { Injectable, Inject, Type, Injector, StringUtils } from '@uon/core';
+import { Injectable, Inject, Type, Injector, StringUtils, Optional, IsType } from '@uon/core';
 import { AUTH_MODULE_CONFIG, AuthModuleConfig } from './config';
 import { Encode, JwtToken, JwtPayload, Decode, VerifyResult, VerifyOptions, Verify, IsVerifyValid } from '@uon/jwt';
 import { compare } from 'bcryptjs';
 import { IUser, IAccessToken } from './auth.model';
 import { Cookies, OutgoingResponse, IncomingRequest } from '@uon/http';
-import { AuthStorageAdapter } from 'src/storage-adapter';
+import { AuthStorageAdapter } from './storage-adapter';
 import { access } from 'fs';
+import { AuthPayloadAdapter } from './payload-adapter';
 
 
 export interface ExchangeCredentialsResult {
+    tokenId?: string;
     token: string;
     user?: IUser;
     expires: number;
@@ -20,23 +22,27 @@ export class AuthService {
 
 
     constructor(
-        @Inject(AUTH_MODULE_CONFIG) private config: AuthModuleConfig,
+        @Inject(AUTH_MODULE_CONFIG) private _config: AuthModuleConfig,
         private storage: AuthStorageAdapter,
-        private injector: Injector) {
+        private injector: Injector,
+        @Optional() private payloadAdapter: AuthPayloadAdapter) {
 
     }
 
+
+    /**
+     * Simpler access to config object
+     */
+    get config() {
+        return this._config;
+    }
 
     /**
      * Exchange a credential pair for a token
      * @param username 
      * @param password 
      */
-    async exchangeCredentials(
-        username: string,
-        password: string,
-        userAgent: string,
-        clientIp: string): Promise<ExchangeCredentialsResult> {
+    async exchangeCredentials(username: string, password: string): Promise<ExchangeCredentialsResult> {
 
         // find the user by username
         const user: IUser = await this.storage.readUser(username);
@@ -54,49 +60,56 @@ export class AuthService {
             return null;
         }
 
-        const exp = Date.now() + this.config.token.duration;
-        const iat = Date.now();
+        // remove password from user object
+        user.password = undefined;
+        delete user.password;
 
+
+        const exp = Date.now() + this._config.token.duration;
+        const iat = Date.now();
 
         // create an access token in the db
         const access_token: IAccessToken = {
-            id: null,
-            userAgent,
-            clientIp,
+            id: undefined,
             userId: user.id,
-            expiresOn: new Date(exp + this.config.token.refreshWindow),
+            expiresOn: new Date(exp + this._config.token.refreshWindow),
             createdOn: new Date(iat),
             refreshedOn: new Date(iat)
         };
 
-        await this.storage.insertAccessToken(access_token);
+        const new_access_token = await this.storage.insertAccessToken(access_token);
 
         // ensure that id was set by adapter
-        if (!access_token.id) {
+        if (!new_access_token.id) {
             throw new Error(`You must set 'id' on access token`);
         }
 
 
         // create a jwt payload
         const payload: JwtPayload = {
-            ...this.config.token.issuer && { iss: this.config.token.issuer },
+            ...this._config.token.issuer && { iss: this._config.token.issuer },
             sub: user.id,
-            jti: access_token.id,
+            jti: new_access_token.id,
             exp,
             iat
+        };
+
+        if (this.payloadAdapter) {
+            await this.payloadAdapter.modifyPayload(payload);
         }
 
         // encode jwt to string
-        const token = Encode(payload, this.config.token.secret[0], this.config.token.algorithm);
+        const token = Encode(payload,
+            this._config.token.secret[0],
+            this._config.token.algorithm
+        );
 
         // the cookie expiry date
-        const expires = exp + this.config.token.refreshWindow
+        const expires = exp + this._config.token.refreshWindow
 
-        // remove password from user object
-        user.password = undefined;
 
         // return the jwt
-        return { token, user, expires };
+        return { tokenId: new_access_token.id, token, user, expires };
 
     }
 
@@ -105,9 +118,9 @@ export class AuthService {
      * 
      * @param token 
      */
-    async invalidateToken(token: JwtToken) {
+    async invalidateToken(tokenId: string) {
 
-        await this.storage.deleteAccessToken(token.payload.jti);
+        await this.storage.deleteAccessToken(tokenId);
 
     }
 
@@ -125,20 +138,19 @@ export class AuthService {
             return null;
         }
 
-        let guards = this.config.refreshGuards || [];
+        let guards = this._config.refreshGuards || [];
 
         for (let i = 0; i < guards.length; ++i) {
             let s = await this.injector.instanciateAsync(guards[i]);
-            let res = await s.checkGuard(access_token);
+            let res = await s.checkGuard(access_token, request);
 
             if (!res) {
                 return null;
             }
         }
 
-
         // all good for refresh, get new expiration date and issued-at date
-        const exp = Date.now() + this.config.token.duration;
+        const exp = Date.now() + this._config.token.duration;
         const iat = Date.now();
 
         // copy orginal payload
@@ -149,14 +161,13 @@ export class AuthService {
         payload.exp = exp;
 
         // encode new payload to jwt
-        const token = Encode(payload, this.config.token.secret[0], this.config.token.algorithm);
+        const token = Encode(payload, this._config.token.secret[0], this._config.token.algorithm);
 
         // new cookie expiration date
-        const expires = exp + this.config.token.refreshWindow;
+        const expires = exp + this._config.token.refreshWindow;
 
-        access_token.clientIp = request.clientIp;
         access_token.refreshedOn = new Date();
-        access_token.expiresOn = new Date(exp + this.config.token.refreshWindow);
+        access_token.expiresOn = new Date(exp + this._config.token.refreshWindow);
 
         // save access_token
         await this.storage.updateAccessToken(access_token);
@@ -276,20 +287,36 @@ export class AuthContext {
      */
     async invalidate() {
 
+
+        const old_mfa_token = this.cookies.getCookie(this.config.mfaTokenCookieName)
+
+
+        if (this._token || old_mfa_token) {
+
+            let token_id = this._token
+                ? this._token.payload.jti
+                : old_mfa_token.substr(0, 24);
+
+            await this.service.invalidateToken(token_id);
+        }
+
+
+        // remove cookies
+        this.cookies.setCookie(this.config.token.cookieName, null, {
+            httpOnly: true,
+            expires: new Date(0),
+            maxAge: 0
+        });
+
+        this.cookies.setCookie(this.config.mfaTokenCookieName, null, {
+            httpOnly: true,
+            expires: new Date(0),
+            maxAge: 0
+        });
+
+        // make sure response uses cookies
         this.response.use(this.cookies);
 
-        this.cookies.setCookie(this.config.token.cookieName,
-            null,
-            {
-                httpOnly: true,
-                expires: new Date(0),
-                maxAge: 0
-            }
-        );
-
-        if (this._token) {
-            return this.service.invalidateToken(this._token);
-        }
 
     }
 

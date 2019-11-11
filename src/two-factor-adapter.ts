@@ -2,7 +2,7 @@ import { ExchangeCredentialsResult } from "./auth.service";
 import { IUser } from "./auth.model";
 
 
-export interface TwoFactorAuthGenResult {
+export interface AuthTwoFactorGenResult {
 
 
     /**
@@ -21,17 +21,26 @@ export interface TwoFactorAuthGenResult {
     expires: number;
 
 
+    /**
+     * User defined props
+     */
+    [k: string]: any;
+
+
 }
 
-export abstract class TwoFactorAuthAdapter {
+export abstract class AuthTwoFactorAdapter {
+
 
     /**
      * Generate an OTP and a token to reference it
      * Implementers must securely store the ExchangeCredentialsResult object 
      * and pass it back when validate is called
+     * If null is return from this call, the 2fa mechanism is bypassed and 
+     * user gets authenticated
      * @param result 
      */
-    abstract generate(result: ExchangeCredentialsResult): Promise<TwoFactorAuthGenResult>;
+    abstract generate(result: ExchangeCredentialsResult): Promise<AuthTwoFactorGenResult>;
 
     /**
      * Validate a code

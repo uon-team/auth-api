@@ -11,6 +11,9 @@ import { AuthService, AuthContext } from './auth.service';
     imports: [],
     providers: [
         AuthService
+    ],
+    declarations: [
+        AuthOutlet
     ]
 })
 export class AuthModule {
@@ -36,11 +39,12 @@ export class AuthModule {
                 throw new Error(`AuthModule: You must provide a private and public key as array elements for algorithm ${merged_config.tokenAlgorithm}`);
             }
 
-            merged_config.tokenSecret = [merged_config.token.secret as string, merged_config.token.secret as string];
+            merged_config.token.secret = [merged_config.token.secret as string, merged_config.token.secret as string];
         }
 
         // prevent further modifications to config
         Object.freeze(merged_config);
+        Object.freeze(merged_config.token);
 
         return {
             module: AuthModule,
@@ -79,7 +83,7 @@ export class AuthModule {
                         });
                         return true;
                     },
-                    deps: [HTTP_ROUTER]
+                    deps: [merged_config.routerToken]
                 }
             ]
         }
