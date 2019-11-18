@@ -11,6 +11,9 @@ import { AuthService, AuthContext } from './auth.service';
     imports: [],
     providers: [
         AuthService
+    ],
+    declarations: [
+        AuthOutlet
     ]
 })
 export class AuthModule {
