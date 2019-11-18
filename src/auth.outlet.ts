@@ -5,25 +5,20 @@ import { AuthService, AuthContext, ExchangeCredentialsResult } from "./auth.serv
 import { Required } from "@uon/model";
 import { Inject, Optional } from "@uon/core";
 import { AUTH_MODULE_CONFIG, AuthModuleConfig } from "./config";
-import { TwoFactorAuthAdapter } from "./two-factor-adapter";
-
+import { AuthTwoFactorAdapter } from "./two-factor-adapter";
 
 @RouterOutlet()
 export class AuthOutlet {
-
 
     constructor(private request: IncomingRequest,
         private response: OutgoingResponse,
         private cookies: Cookies,
         private auth: AuthService,
         private authContext: AuthContext,
-        @Optional() private twoFactorAdapter: TwoFactorAuthAdapter) { }
-
-
+        @Optional() private twoFactorAdapter: AuthTwoFactorAdapter) { }
 
     /**
      * Attempt to authenticate a user with username and password
-     * This is the
      * @param body 
      */
     @HttpRoute({
@@ -41,8 +36,10 @@ export class AuthOutlet {
     })
     async authenticate(body: JsonBody<{ username: string, password: string }>) {
 
+        const old_mfa_token = this.cookies.getCookie(this.auth.config.mfaTokenCookieName)
+
         // remove any old token
-        if (this.authContext.jwt) {
+        if (this.authContext.jwt || old_mfa_token) {
             // invalidate current token
             await this.authContext.invalidate();
         }
@@ -50,39 +47,54 @@ export class AuthOutlet {
         // try and get a token with the provided credentials
         const result = await this.auth.exchangeCredentials(
             body.value.username,
-            body.value.password,
-            this.request.headers['user-agent'],
-            this.request.clientIp);
+            body.value.password
+        );
 
         if (!result) {
             throw new HttpError(401);
         }
 
-        // prepare response object
-        const res: any = {
-            user: result.user,
-            expires: result.expires
-        };
+        // if 2fa is defined, generate a code 
+        const twofa_result = this.twoFactorAdapter && await this.twoFactorAdapter.generate(result);
 
         // do 2FA if needed
-        if (this.twoFactorAdapter) {
+        if (twofa_result !== null) {
 
-            const twofa_result = await this.twoFactorAdapter.generate(result);
+            // set the mfa token in cookies
+            this.cookies.setCookie(this.auth.config.mfaTokenCookieName,
+                result.tokenId + twofa_result.token,
+                {
+                    httpOnly: true,
+                    expires: new Date(twofa_result.expires),
+                    maxAge: this.auth.config.token.duration / 1000
+                }
+            );
 
-            // if method is none, adapter didnt do anything
-            if (twofa_result !== null) {
-                res.mfa = twofa_result
-            }
+            this.response.use(this.cookies);
+
+            // send json response
+            this.response.json({
+                type: '2fa',
+                result: twofa_result
+            });
+
 
         }
+        else {
 
-        // no mfa, send jwt
-        if (!res.mfa) {
+            // set cookies and headers
             this.authContext.setupSuccessResponse(result);
-        }
 
-        // send json response
-        this.response.json(res);
+            // send json response
+            this.response.json({
+                type: 'auth',
+                result: {
+                    user: result.user,
+                    expires: result.expires
+                }
+            });
+
+        }
 
         // all done!
         return this.response.finish();
@@ -94,32 +106,50 @@ export class AuthOutlet {
         guards: [
             JsonBodyGuard(null, {
                 validate: {
-                    token: [Required()],
                     code: [Required()]
                 },
-                maxLength: 8196
+                maxLength: 128
             })
         ]
     })
-    async completeMFA(body: JsonBody<{ token: string, code: string }>) {
+    async validateMFA(body: JsonBody<{ code: string }>) {
 
         if (!this.twoFactorAdapter) {
             throw new HttpError(404);
         }
 
+        // grab MFA token from cookies
+        const mfa_token = this.cookies.getCookie(this.auth.config.mfaTokenCookieName);
+
+        if (!mfa_token) {
+            throw new HttpError(401);
+        }
+
         // try token and code on adapter
-        const result = await this.twoFactorAdapter.validate(body.value.token, body.value.code);
+        const result = await this.twoFactorAdapter
+            .validate(mfa_token.substring(24), body.value.code);
 
         if (!result) {
             throw new HttpError(401);
         }
 
+        // remove the mfa token in cookies
+        this.cookies.setCookie(this.auth.config.mfaTokenCookieName, null, {
+            httpOnly: true,
+            expires: new Date(0),
+            maxAge: 0
+        });
+
+        // set cookies and headers
         this.authContext.setupSuccessResponse(result);
 
         // send the user as json response
         this.response.json({
-            user: result.user,
-            expires: result.expires
+            type: 'auth',
+            result: {
+                user: result.user,
+                expires: result.expires
+            }
         });
 
         return this.response.finish();
@@ -143,7 +173,7 @@ export class AuthOutlet {
 
     @HttpRoute({
         method: 'OPTIONS',
-        path: '/'
+        path: '/(.*)?'
     })
     async options() {
 

@@ -1,4 +1,5 @@
 
+export * from './payload-adapter';
 export * from './storage-adapter';
 export * from './two-factor-adapter';
 export * from './auth.module';

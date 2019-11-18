@@ -52,21 +52,5 @@ export class AuthGuard implements IRouteGuardService {
  * Interface for token refresh checks
  */
 export interface ITokenRefreshGuard {
-    checkGuard(accessToken: IAccessToken): Promise<boolean>;
-}
-
-
-export class ClientIpRefreshGuard implements ITokenRefreshGuard {
-
-    constructor(private request: IncomingRequest) { }
-
-    async checkGuard(accessToken: IAccessToken): Promise<boolean> {
-
-        if (accessToken.clientIp != this.request.clientIp) {
-            return false;
-        }
-
-        return true;
-    }
-
+    checkGuard(accessToken: IAccessToken, request: IncomingRequest): Promise<boolean>;
 }
