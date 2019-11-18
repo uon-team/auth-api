@@ -5,7 +5,7 @@ import { Encode, JwtToken, JwtPayload, Decode, VerifyResult, VerifyOptions, Veri
 import { compare } from 'bcryptjs';
 import { IUser, IAccessToken } from './auth.model';
 import { Cookies, OutgoingResponse, IncomingRequest } from '@uon/http';
-import { AuthStorageAdapter } from 'src/storage-adapter';
+import { AuthStorageAdapter } from './storage-adapter';
 import { access } from 'fs';
 
 
