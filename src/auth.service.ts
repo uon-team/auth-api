@@ -1,8 +1,8 @@
 
-import { Injectable, Inject, Type, Injector, StringUtils, Optional, IsType } from '@uon/core';
+import { Injectable, Inject, Type, Injector, Optional, IsType } from '@uon/core';
 import { AUTH_MODULE_CONFIG, AuthModuleConfig } from './config';
 import { Encode, JwtToken, JwtPayload, Decode, VerifyResult, VerifyOptions, Verify, IsVerifyValid } from '@uon/jwt';
-import { compare } from 'bcryptjs';
+import { compare, hash } from 'bcryptjs';
 import { IUser, IAccessToken } from './auth.model';
 import { Cookies, OutgoingResponse, IncomingRequest } from '@uon/http';
 import { AuthStorageAdapter } from './storage-adapter';
@@ -35,6 +35,10 @@ export class AuthService {
      */
     get config() {
         return this._config;
+    }
+
+    async hashPassword(pw: string, rounds: number = 10) {
+        return hash(pw, rounds);
     }
 
     /**

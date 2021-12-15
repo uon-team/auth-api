@@ -1,6 +1,6 @@
 
 import { RouterOutlet, ActivatedRoute } from "@uon/router";
-import { HttpRoute, IncomingRequest, OutgoingResponse, HttpError, Cookies, JsonBodyGuard, JsonBody } from '@uon/http';
+import { HttpRoute, IncomingRequest, OutgoingResponse, HttpError, Cookies, JsonBodyGuard, RequestBody } from '@uon/http';
 import { AuthService, AuthContext, ExchangeCredentialsResult } from "./auth.service";
 import { Required } from "@uon/model";
 import { Inject, Optional } from "@uon/core";
@@ -34,7 +34,7 @@ export class AuthOutlet {
             })
         ]
     })
-    async authenticate(body: JsonBody<{ username: string, password: string }>) {
+    async authenticate(body: RequestBody<{ username: string, password: string }>) {
 
         const old_mfa_token = this.cookies.getCookie(this.auth.config.mfaTokenCookieName)
 
@@ -112,7 +112,7 @@ export class AuthOutlet {
             })
         ]
     })
-    async validateMFA(body: JsonBody<{ code: string }>) {
+    async validateMFA(body: RequestBody<{ code: string }>) {
 
         if (!this.twoFactorAdapter) {
             throw new HttpError(404);
